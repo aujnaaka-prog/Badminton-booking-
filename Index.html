@@ -1,0 +1,17 @@
+const startTime = 6;
+const endTime = 23; // เวลาเริ่มรอบสุดท้าย
+const container = document.getElementById('timetable');
+
+for (let hour = startTime; hour <= endTime; hour++) {
+  const timeLabel = `${hour.toString().padStart(2, '0')}:00`;
+  
+  // สร้างแถวสำหรับแต่ละช่วงเวลา
+  const row = `
+    <div class="time-row">
+      <span>${timeLabel}</span>
+      <button onclick="book(1, '${timeLabel}')">สนาม 1 (ว่าง)</button>
+      <button onclick="book(2, '${timeLabel}')">สนาม 2 (ว่าง)</button>
+    </div>
+  `;
+  container.innerHTML += row;
+}
