@@ -1,1 +1,96 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>จองสนามแบดมินตัน 🏸</title>
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <style>
+        :root { --primary: #00b900; --bg: #f4f7f6; }
+        body { font-family: sans-serif; background: var(--bg); margin: 0; padding: 20px; }
+        h2 { text-align: center; color: #333; }
+        
+        .grid-container {
+            display: grid;
+            grid-template-columns: 80px 1fr 1fr; /* เวลา | สนาม 1 | สนาม 2 */
+            gap: 10px;
+            background: white;
+            padding: 15px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .header { font-weight: bold; text-align: center; padding: 10px 0; border-bottom: 2px solid #eee; }
+        .time-slot { display: flex; align-items: center; justify-content: center; font-weight: bold; color: #666; }
+        
+        .btn-court {
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            background: #e8f5e9;
+            color: #2e7d32;
+            cursor: pointer;
+            font-weight: 500;
+            transition: 0.2s;
+        }
+
+        .btn-court:active { transform: scale(0.95); background: var(--primary); color: white; }
+        .booked { background: #ffebee; color: #c62828; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+
+    <h2>🏸 จองสนามแบดมินตัน</h2>
+    <div class="grid-container" id="timetable">
+        <div class="header">เวลา</div>
+        <div class="header">สนาม 1</div>
+        <div class="header">สนาม 2</div>
+    </div>
+
+    <script>
+        // สร้างตารางเวลา 06:00 - 24:00
+        const timetable = document.getElementById('timetable');
+        
+        for (let hour = 6; hour <= 23; hour++) {
+            const timeStr = `${hour.toString().padStart(2, '0')}:00`;
+            
+            // ช่องเวลา
+            const timeDiv = document.createElement('div');
+            timeDiv.className = 'time-slot';
+            timeDiv.innerText = timeStr;
+            timetable.appendChild(timeDiv);
+
+            // ปุ่มสนาม 1 และ 2
+            for (let court = 1; court <= 2; court++) {
+                const btn = document.createElement('button');
+                btn.className = 'btn-court';
+                btn.innerText = 'ว่าง';
+                btn.onclick = () => selectBooking(court, timeStr);
+                timetable.appendChild(btn);
+            }
+        }
+
+        function selectBooking(court, time) {
+            if(confirm(`ยืนยันการจอง สนาม ${court} เวลา ${time} น. ใช่หรือไม่?`)) {
+                // ส่วนนี้จะเชื่อมต่อกับระบบจ่ายเงินในขั้นตอนถัดไป
+                alert(`คุณเลือกจองสนาม ${court} รอบเวลา ${time}`);
+                
+                // ถ้าเชื่อมต่อ LIFF สำเร็จ จะส่งข้อความกลับเข้าแชท
+                if (liff.isInClient()) {
+                    liff.sendMessages([{
+                        type: 'text',
+                        text: `📝 จองสนาม ${court}\n⏰ เวลา ${time}\nกรุณาชำระเงินเพื่อยืนยันการจอง`
+                    }]).then(() => liff.closeWindow());
+                }
+            }
+        }
+
+        // เริ่มต้นระบบ LIFF
+        async function initLiff() {
+            await liff.init({ liffId: "YOUR_LIFF_ID_HERE" }); // รอใส่ ID หลังจากตั้งค่าใน Console
+        }
+        initLiff();
+    </script>
+</body>
+</html>
 
