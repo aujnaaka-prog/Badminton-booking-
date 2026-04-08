@@ -3,94 +3,123 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>จองสนามแบดมินตัน 🏸</title>
+    <title>ระบบจองสนามแบดมินตัน 🏸</title>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
         :root { --primary: #00b900; --bg: #f4f7f6; }
-        body { font-family: sans-serif; background: var(--bg); margin: 0; padding: 20px; }
-        h2 { text-align: center; color: #333; }
-        
-        .grid-container {
-            display: grid;
-            grid-template-columns: 80px 1fr 1fr; /* เวลา | สนาม 1 | สนาม 2 */
-            gap: 10px;
-            background: white;
-            padding: 15px;
-            border-radius: 15px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-
-        .header { font-weight: bold; text-align: center; padding: 10px 0; border-bottom: 2px solid #eee; }
+        body { font-family: 'Sarabun', sans-serif; background: var(--bg); margin: 0; padding: 20px; text-align: center; }
+        .grid-container { display: grid; grid-template-columns: 80px 1fr 1fr; gap: 10px; background: white; padding: 15px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .header { font-weight: bold; padding: 10px 0; border-bottom: 2px solid #eee; }
         .time-slot { display: flex; align-items: center; justify-content: center; font-weight: bold; color: #666; }
+        .btn-court { padding: 12px; border: none; border-radius: 8px; background: #e8f5e9; color: #2e7d32; cursor: pointer; font-size: 14px; }
+        .btn-court:active { background: var(--primary); color: white; }
+        .controls { margin-bottom: 20px; background: white; padding: 15px; border-radius: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        select { padding: 10px; border-radius: 8px; border: 1px solid #ddd; width: 100%; max-width: 200px; font-size: 16px; margin-top: 10px; }
         
-        .btn-court {
-            padding: 12px;
-            border: none;
-            border-radius: 8px;
-            background: #e8f5e9;
-            color: #2e7d32;
-            cursor: pointer;
-            font-weight: 500;
-            transition: 0.2s;
-        }
-
-        .btn-court:active { transform: scale(0.95); background: var(--primary); color: white; }
-        .booked { background: #ffebee; color: #c62828; cursor: not-allowed; }
+        /* Modal Style */
+        #paymentModal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); }
+        .modal-content { background: white; margin: 10% auto; padding: 20px; border-radius: 20px; width: 85%; max-width: 400px; }
+        .qr-img { width: 100%; max-width: 250px; margin: 15px 0; border: 1px solid #eee; }
+        .btn-confirm { background: var(--primary); color: white; border: none; padding: 15px 30px; border-radius: 10px; font-size: 18px; font-weight: bold; width: 100%; cursor: pointer; margin-top: 15px; }
     </style>
 </head>
 <body>
 
     <h2>🏸 จองสนามแบดมินตัน</h2>
+    
+    <div class="controls">
+        <label><b>🕒 เลือกจำนวนชั่วโมงที่จะเล่น:</b></label><br>
+        <select id="duration">
+            <option value="1">1 ชั่วโมง</option>
+            <option value="2">2 ชั่วโมง</option>
+            <option value="3">3 ชั่วโมง</option>
+        </select>
+    </div>
+
     <div class="grid-container" id="timetable">
         <div class="header">เวลา</div>
         <div class="header">สนาม 1</div>
         <div class="header">สนาม 2</div>
     </div>
 
+    <div id="paymentModal">
+        <div class="modal-content">
+            <h3 style="margin-top:0;">💰 สรุปยอดชำระเงิน</h3>
+            <p id="summaryText" style="font-size: 16px; line-height: 1.6;"></p>
+            <hr>
+            <p><b>สแกนเพื่อจ่ายเงินที่นี่</b></p>
+            <img src="https://i.ibb.co/KTPmgNG/image.png" class="qr-img" alt="QR Payment">
+            <p style="font-size: 14px; color: #666;">🏦 กสิกรไทย: นายวินัย ดิษฐฐาน</p>
+            <button class="btn-confirm" onclick="finalSubmit()">✅ แจ้งโอนเงิน (ส่งสลิป)</button>
+            <button onclick="document.getElementById('paymentModal').style.display='none'" style="margin-top:10px; background:none; border:none; color:#999;">ยกเลิก</button>
+        </div>
+    </div>
+
     <script>
-        // สร้างตารางเวลา 06:00 - 24:00
+        let bookingData = {}; // เก็บข้อมูลชั่วคราว
+
         const timetable = document.getElementById('timetable');
-        
         for (let hour = 6; hour <= 23; hour++) {
             const timeStr = `${hour.toString().padStart(2, '0')}:00`;
-            
-            // ช่องเวลา
             const timeDiv = document.createElement('div');
             timeDiv.className = 'time-slot';
             timeDiv.innerText = timeStr;
             timetable.appendChild(timeDiv);
 
-            // ปุ่มสนาม 1 และ 2
             for (let court = 1; court <= 2; court++) {
                 const btn = document.createElement('button');
                 btn.className = 'btn-court';
                 btn.innerText = 'ว่าง';
-                btn.onclick = () => selectBooking(court, timeStr);
+                btn.onclick = () => openPayment(court, hour);
                 timetable.appendChild(btn);
             }
         }
 
-        function selectBooking(court, time) {
-            if(confirm(`ยืนยันการจอง สนาม ${court} เวลา ${time} น. ใช่หรือไม่?`)) {
-                // ส่วนนี้จะเชื่อมต่อกับระบบจ่ายเงินในขั้นตอนถัดไป
-                alert(`คุณเลือกจองสนาม ${court} รอบเวลา ${time}`);
-                
-                // ถ้าเชื่อมต่อ LIFF สำเร็จ จะส่งข้อความกลับเข้าแชท
-                if (liff.isInClient()) {
-                    liff.sendMessages([{
-                        type: 'text',
-                        text: `📝 จองสนาม ${court}\n⏰ เวลา ${time}\nกรุณาชำระเงินเพื่อยืนยันการจอง`
-                    }]).then(() => liff.closeWindow());
-                }
+        function openPayment(court, startHour) {
+            const duration = parseInt(document.getElementById('duration').value);
+            const day = new Date().getDay(); 
+            let totalPrice = 0;
+
+            for (let i = 0; i < duration; i++) {
+                let currentHour = startHour + i;
+                if (currentHour >= 24) break;
+
+                if (currentHour >= 17) totalPrice += 160;
+                else if (day === 0 || day === 6) totalPrice += 140;
+                else totalPrice += 120;
+            }
+
+            const endTime = (startHour + duration).toString().padStart(2, '0') + ":00";
+            
+            // เก็บข้อมูลลงตัวแปร global
+            bookingData = {
+                court: court,
+                time: `${startHour}:00 - ${endTime}`,
+                duration: duration,
+                total: totalPrice
+            };
+
+            document.getElementById('summaryText').innerHTML = 
+                `สนาม: <b>${court}</b><br>เวลา: <b>${bookingData.time}</b> (${duration} ชม.)<br>ยอดรวม: <b style="color:red; font-size:24px;">${totalPrice} บาท</b>`;
+            
+            document.getElementById('paymentModal').style.display = 'block';
+        }
+
+        function finalSubmit() {
+            const msg = `📝 จองสนาม ${bookingData.court}\n⏰ ${bookingData.time} (${bookingData.duration} ชม.)\n💰 ยอดชำระ: ${bookingData.total} บาท\n--------------------\n✅ โอนเงินเรียบร้อยแล้ว\n📎 (กำลังแนบสลิปด้านล่าง)`;
+            
+            if (liff.isInClient()) {
+                liff.sendMessages([{ type: 'text', text: msg }]).then(() => liff.closeWindow());
+            } else {
+                alert("ระบบจำลองการส่งข้อความ:\n" + msg);
+                document.getElementById('paymentModal').style.display = 'none';
             }
         }
 
-        // เริ่มต้นระบบ LIFF
         async function initLiff() {
-            await liff.init({ liffId: "YOUR_LIFF_ID_HERE" }); // รอใส่ ID หลังจากตั้งค่าใน Console
+            await liff.init({ liffId: "YOUR_LIFF_ID_HERE" }); 
         }
         initLiff();
     </script>
 </body>
 </html>
-
