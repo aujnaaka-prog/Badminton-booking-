@@ -45,10 +45,11 @@
 
     <div class="step">
         <label>⏳ 4. จำนวนชั่วโมง</label>
-        <select id="hours" onchange="calculatePrice()">
+        <select id="hours" onchange="updateAvailableSlots()">
             <option value="1">1 ชั่วโมง</option>
             <option value="2">2 ชั่วโมง</option>
             <option value="3">3 ชั่วโมง</option>
+            <option value="4">4 ชั่วโมง</option>
         </select>
     </div>
 
@@ -76,84 +77,44 @@
         } else { liff.login(); }
     }
 
-    async function updateAvailableSlots() {
+       async function updateAvailableSlots() {
         const date = document.getElementById('date').value;
         const court = document.getElementById('court').value;
+        const hours = parseInt(document.getElementById('hours').value); // ดึงจำนวนชม. มาเช็ค
         const timeSelect = document.getElementById('time');
         if (!date) return;
         
         timeSelect.innerHTML = '<option>กำลังเช็คสนามว่าง...</option>';
         try {
             const res = await fetch(`${GAS_URL}?date=${date}&court=${court}`);
-            const bookedSlots = await res.json();
+            const bookedSlots = await res.json(); 
             timeSelect.innerHTML = '';
             
+            // วนลูปเช็คตั้งแต่ 06:00 - 23:00
             for (let h = 6; h <= 23; h++) {
-                const isBooked = bookedSlots.some(slot => h >= slot.start && h < slot.end);
-                if (!isBooked) {
+                let canBook = true;
+                
+                // เช็คว่าถ้าเริ่มชั่วโมงนี้ แล้วจองยาวไปตามจำนวนชั่วโมง จะทับคิวใครไหม
+                for (let i = 0; i < hours; i++) {
+                    let currentHour = h + i;
+                    if (bookedSlots.some(slot => currentHour >= slot.start && currentHour < slot.end)) {
+                        canBook = false;
+                        break;
+                    }
+                }
+
+                // ถ้าว่างตลอดช่วง และเวลาจบไม่เกินเที่ยงคืน (24:00)
+                if (canBook && (h + hours <= 24)) {
                     let display = (h < 10 ? '0'+h : h) + ':00';
                     timeSelect.innerHTML += `<option value="${display}">${display} น.</option>`;
                 }
             }
-            calculatePrice();
-        } catch (e) { alert('โหลดข้อมูลไม่สำเร็จ'); }
-    }
 
-    function calculatePrice() {
-        const dateVal = document.getElementById('date').value;
-        const timeVal = document.getElementById('time').value;
-        const hours = parseInt(document.getElementById('hours').value);
-        if(!dateVal || !timeVal) return;
-
-        const date = new Date(dateVal);
-        const day = date.getDay(); 
-        const hour = parseInt(timeVal.split(':')[0]);
-        let rate = 160; 
-
-        if (hour >= 6 && hour <= 16) {
-            rate = (day >= 1 && day <= 5) ? 120 : 140;
-        }
-        document.getElementById('rate').innerText = rate;
-        document.getElementById('total-price').innerText = rate * hours;
-    }
-
-        async function submitBooking() {
-        const data = {
-            date: document.getElementById('date').value,
-            time: document.getElementById('time').value,
-            hours: document.getElementById('hours').value,
-            court: document.getElementById('court').value,
-            userName: userName
-        };
-        const total = document.getElementById('total-price').innerText;
-
-        if(!data.date || !data.time) return alert('กรุณาระบุวันเวลาให้ครบค่ะ');
-
-        try {
-            // 1. ส่งข้อมูลไปเช็คและบันทึกที่ GAS
-            const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify(data) });
-            const result = await res.json(); // อ่านคำตอบจาก GAS
-
-            // 2. ถ้า GAS บอกว่าจองสำเร็จ (success) ให้ส่งข้อความ LINE
-            if(result.status === 'success') {
-                await liff.sendMessages([
-                    {
-                        type: 'text',
-                        text: `🎾 จองสนาม: ${data.court}\n👤 คุณ: ${userName}\n📅 วันที่: ${data.date}\n⏰ เวลา: ${data.time} (${data.hours} ชม.)\n💰 ยอดโอน: ${total} บาท\n\n✅ จองสำเร็จ! กรุณาโอนเงินตาม QR Code และแนบสลิปในแชทนี้นะคะ`
-                    },
-                    {
-                        type: 'image',
-                        originalContentUrl: QR_CODE_URL,
-                        previewImageUrl: QR_CODE_URL
-                    }
-                ]);
-                liff.closeWindow();
-            } else {
-                // 3. ถ้า GAS บอกว่าจองซ้ำ (error) ให้แจ้งเตือนลูกค้า
-                alert('❌ ขออภัยค่ะ: ' + result.message);
-                updateAvailableSlots(); // รีเฟรชเวลาว่างใหม่ทันที
+            if (timeSelect.innerHTML === '') {
+                timeSelect.innerHTML = '<option value="">-- ไม่มีเวลาว่างต่อเนื่อง --</option>';
             }
-        } catch(e) { 
-            alert('เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาลองใหม่อีกครั้งค่ะ'); 
+            calculatePrice();
+        } catch (e) { 
+            timeSelect.innerHTML = '<option value="">โหลดข้อมูลไม่สำเร็จ</option>';
         }
     }
