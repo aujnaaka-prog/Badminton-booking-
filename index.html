@@ -23,33 +23,33 @@
 
 <div class="container">
     <h2>🏸 เอ็นเอ แบดมินตัน</h2>
-    <div class="step">
-        <label>🏟️ 1. เลือกสนาม</label>
-        <select id="court" onchange="updateAvailableSlots()">
-    <option value="สนามที่ 1">สนามที่ 1</option>
-    <option value="สนามที่ 2">สนามที่ 2</option>
-        </select>
-    </div>
 
     <div class="step">
-        <label>📅 2. เลือกวันที่จอง</label>
+        <label>📅 1. เลือกวันที่จอง</label>
         <input type="date" id="date" onchange="updateAvailableSlots()">
     </div>
 
     <div class="step">
-        <label>⏰ 3. เวลาที่ว่าง</label>
-        <select id="time" onchange="calculatePrice()">
-            <option value="">-- กรุณาเลือกวันที่ --</option>
-        </select>
-    </div>
-
-    <div class="step">
-        <label>⏳ 4. จำนวนชั่วโมง</label>
+        <label>⏳ 2. จำนวนชั่วโมง</label>
         <select id="hours" onchange="updateAvailableSlots()">
             <option value="1">1 ชั่วโมง</option>
             <option value="2">2 ชั่วโมง</option>
             <option value="3">3 ชั่วโมง</option>
             <option value="4">4 ชั่วโมง</option>
+        </select>
+    </div>
+
+    <div class="step">
+        <label>⏰ 3. เลือกเวลาที่ต้องการ</label>
+        <select id="time" onchange="updateAvailableCourts()">
+            <option value="">-- กรุณาเลือกวันที่ --</option>
+        </select>
+    </div>
+
+    <div class="step">
+        <label>🏟️ 4. สนามที่ว่าง</label>
+        <select id="court" onchange="calculatePrice()">
+            <option value="">-- กรุณาเลือกเวลา --</option>
         </select>
     </div>
 
@@ -63,7 +63,6 @@
 </div>
 
 <script>
-    // --- แก้ไข 3 จุดนี้ ---
     const GAS_URL = "https://script.google.com/macros/s/AKfycbwuztGdWAiXcb25S5L15M7mMrNwKGAD0m9Ht11nnuwk43ABXpHghso70oFHagE693zk/exec"; 
     const LIFF_ID = "2009744682-lDeX6hEz"; 
     const QR_CODE_URL = "https://aujnaaka-prog.github.io/Badminton-booking-/line_oa_chat_260408_225525.jpeg"; 
@@ -78,40 +77,70 @@
         } else { liff.login(); }
     }
 
+    // ฟังก์ชันหาเวลาที่ว่าง (เช็คว่ามีสนามใดสนามหนึ่งว่าง)
     async function updateAvailableSlots() {
         const date = document.getElementById('date').value;
-        const court = document.getElementById('court').value;
         const hours = parseInt(document.getElementById('hours').value) || 1;
         const timeSelect = document.getElementById('time');
+        const courtSelect = document.getElementById('court');
         
         if (!date) return;
         
-        timeSelect.innerHTML = '<option>กำลังเช็คสนามว่าง...</option>';
+        timeSelect.innerHTML = '<option>กำลังเช็คเวลาว่าง...</option>';
+        courtSelect.innerHTML = '<option value="">-- กรุณาเลือกเวลา --</option>';
+
         try {
-            const res = await fetch(`${GAS_URL}?date=${date}&court=${court}`);
-            const bookedSlots = await res.json(); 
-            timeSelect.innerHTML = '';
+            const res = await fetch(`${GAS_URL}?date=${date}`);
+            const allBooked = await res.json(); 
+            timeSelect.innerHTML = '<option value="">-- เลือกเวลา --</option>';
             
             for (let h = 6; h <= 23; h++) {
-                let canBook = true;
-                for (let i = 0; i < hours; i++) {
-                    let currentHour = h + i;
-                    if (bookedSlots.some(slot => currentHour >= slot.start && currentHour < slot.end)) {
-                        canBook = false;
-                        break;
+                let canBookAny = false;
+                // เช็คทั้งสนาม 1 และ 2
+                ["สนามที่ 1", "สนามที่ 2"].forEach(c => {
+                    let free = true;
+                    for (let i = 0; i < hours; i++) {
+                        if (allBooked.some(s => s.court === c && (h+i) >= s.start && (h+i) < s.end)) {
+                            free = false;
+                        }
                     }
-                }
+                    if (free) canBookAny = true;
+                });
 
-                if (canBook && (h + hours <= 24)) {
+                if (canBookAny && (h + hours <= 24)) {
                     let display = (h < 10 ? '0'+h : h) + ':00';
                     timeSelect.innerHTML += `<option value="${display}">${display} น.</option>`;
                 }
             }
-            if (timeSelect.innerHTML === '') {
-                timeSelect.innerHTML = '<option value="">-- ไม่มีเวลาว่างต่อเนื่อง --</option>';
-            }
-            calculatePrice();
         } catch (e) { alert('โหลดข้อมูลไม่สำเร็จ'); }
+    }
+
+    // ฟังก์ชันหาสนามที่ว่างในเวลาที่เลือก
+    async function updateAvailableCourts() {
+        const date = document.getElementById('date').value;
+        const timeVal = document.getElementById('time').value;
+        const hours = parseInt(document.getElementById('hours').value);
+        const courtSelect = document.getElementById('court');
+        
+        if (!timeVal) return;
+        const startH = parseInt(timeVal.split(':')[0]);
+
+        try {
+            const res = await fetch(`${GAS_URL}?date=${date}`);
+            const allBooked = await res.json();
+            courtSelect.innerHTML = '';
+            
+            ["สนามที่ 1", "สนามที่ 2"].forEach(c => {
+                let free = true;
+                for (let i = 0; i < hours; i++) {
+                    if (allBooked.some(s => s.court === c && (startH+i) >= s.start && (startH+i) < s.end)) {
+                        free = false;
+                    }
+                }
+                if (free) courtSelect.innerHTML += `<option value="${c}">${c}</option>`;
+            });
+            calculatePrice();
+        } catch (e) { alert('โหลดข้อมูลสนามไม่สำเร็จ'); }
     }
 
     function calculatePrice() {
@@ -142,7 +171,7 @@
         };
         const total = document.getElementById('total-price').innerText;
 
-        if(!data.date || !data.time) return alert('กรุณาระบุวันเวลาให้ครบค่ะ');
+        if(!data.date || !data.time || !data.court) return alert('กรุณาระบุข้อมูลให้ครบค่ะ');
 
         try {
             const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify(data) });
@@ -170,3 +199,5 @@
 
     init();
 </script>
+</body>
+</html>
