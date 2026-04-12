@@ -154,7 +154,7 @@
         const hour = parseInt(timeVal.split(':')[0]);
         let rate = 160; 
 
-        if (hour >= 6 && hour <= 16) {
+        if (hour >= 6 && hour < 16) {
             rate = (day >= 1 && day <= 5) ? 120 : 140;
         }
         document.getElementById('rate').innerText = rate;
