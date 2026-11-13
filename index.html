@@ -96,8 +96,8 @@
             
             for (let h = 6; h <= 23; h++) {
                 let canBookAny = false;
-                // เช็คทั้งสนาม 1 และ 2
-                ["สนามที่ 1", "สนามที่ 2"].forEach(c => {
+                // เช็คทั้งสนาม 1 2 และ 3
+                ["สนามที่ 1", "สนามที่ 2", "สนามที่ 3"].forEach(c => {
                     let free = true;
                     for (let i = 0; i < hours; i++) {
                         if (allBooked.some(s => s.court === c && (h+i) >= s.start && (h+i) < s.end)) {
@@ -130,7 +130,7 @@
             const allBooked = await res.json();
             courtSelect.innerHTML = '';
             
-            ["สนามที่ 1", "สนามที่ 2"].forEach(c => {
+            ["สนามที่ 1", "สนามที่ 2", "สนามที่ 3"].forEach(c => {
                 let free = true;
                 for (let i = 0; i < hours; i++) {
                     if (allBooked.some(s => s.court === c && (startH+i) >= s.start && (startH+i) < s.end)) {
